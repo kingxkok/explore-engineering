@@ -1,0 +1,239 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+</head>
+<body >
+<canvas id="Canvas" height="500" width="1000" ></canvas>
+
+<audio id="Sound" controls style="display:none">
+  <source src="missile.mp3" type="audio/mpeg" loop=false>
+Your browser does not support the audio element.
+</audio>
+
+<script>
+ 	window.requestAnimFrame = (function(callback) {
+        return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame ||
+        function(callback) {
+          window.setTimeout(callback, 1000 / 60);
+        };
+    })();
+
+    var canvas = document.getElementById("Canvas");
+    var date = new Date();
+    var time = date.getTime();
+    var isGet = false;
+    var pointGroup = [];
+    var particlesGroup = [];
+    var j = 0;
+    var isDown;
+    var sound = document.getElementById("Sound"); 
+
+    var context=canvas.getContext("2d");
+    var img1 = new Image();
+    img1.src = "black.jpg";
+	img1.onload = function() {context.drawImage(img1,0, 0, 1000, 500);};
+
+	function particle(x,y,angle,v,a,color){
+		this.x = x;
+		this.y = y;
+		this.lastLocs = [ 
+			{x:x, y:y},
+			{x:x, y:y},
+			{x:x, y:y}, 
+			];
+		this.v = v; // the v
+		this.a = a; // the deacceleration
+		this.vx = 0;
+		this.vy = 0;
+		this.radius = 3;// the radius of the balls
+		// this.h = h;
+		// this.s = 100%;
+		// this.l = 70%;
+		this.color=color;
+		this.angle = angle;// explode angle of each balls
+		this.originalAngle = angle;
+		//this.opa = 1;
+		this.isFinished = false;
+	}
+
+	function point(x,y){
+		this.targetX = x;
+		this.targetY = y;
+		this.x = (x-500)/100+500;
+		this.y = (y-500)/100+500;
+		this.lastX = this.x;
+		this.lastY = this.y;
+		this.isReach = false;
+		this.isCreate = false;
+	}
+
+	function getMousePos(canvas, evt) {
+	    var obj = canvas;
+	    var top = 0;
+	    var left = 0;
+	    while(obj.tagName != 'BODY') {
+        	top += obj.offsetTop;
+        	left += obj.offsetLeft;
+        	obj = obj.offsetParent;
+    	}
+    	var mouseX = evt.clientX - left + window.pageXOffset;
+   		var mouseY = evt.clientY - top + window.pageYOffset;
+    	return {
+        	x: mouseX,
+        	y: mouseY
+        };
+    }
+
+    function updatePoint(point){
+    	point.lastX = point.x;
+ 		point.lastY = point.y;
+    	point.x += (point.targetX-500)/100;
+    	point.y += (point.targetY-500)/100;
+    	if((point.x-point.targetX)*(point.lastX-point.targetX)<=0) point.isReach = true;
+    }
+
+    function drawPoint(point){
+    	context = canvas.getContext("2d");
+    	context.beginPath();
+    	context.moveTo(point.x,point.y);
+    	context.lineWidth = 2;
+        context.lineTo(point.lastX,point.lastY);
+        context.strokeStyle = "red";
+        context.stroke();
+        context.closePath();
+    }
+
+    function drawCirlce(x,y){
+    	context.beginPath();
+		context.arc(x , y , 1 , 0 , 2* Math.PI);
+		context.fillStyle = "white";
+		context.fill();
+    }
+
+    function newParticle(point){
+    	var particleGroup = [];
+    	var color = 'hsl('+360*Math.random()+', 100%, 70%)';
+    	for(var i=0; i<18; i++){
+    		particleGroup.push(new particle(point.targetX, point.targetY, i*10, 1*Math.random() + 2, 0.02 ,color));
+    		var radian = (particleGroup[i].angle-90)/180*(2*Math.PI);
+    		particleGroup[i].vx = particleGroup[i].v*Math.sin(radian);
+    		particleGroup[i].vy = particleGroup[i].v*Math.cos(radian);
+    	}
+    	particlesGroup.push(particleGroup);
+    }
+
+    function update(particleGroup){
+    	for(var i=0; i<particleGroup.length; i++){
+    		var radian = (particleGroup[i].angle-90)/180*(2*Math.PI);
+    		particleGroup[i].vx = particleGroup[i].v*Math.sin(radian);
+    		particleGroup[i].vy = particleGroup[i].v*Math.cos(radian);
+    		particleGroup[i].lastLocs[2].x = particleGroup[i].lastLocs[1].x;
+			particleGroup[i].lastLocs[2].y = particleGroup[i].lastLocs[1].y;
+			particleGroup[i].lastLocs[1].x = particleGroup[i].lastLocs[0].x;
+			particleGroup[i].lastLocs[1].y = particleGroup[i].lastLocs[0].y;
+    		particleGroup[i].lastLocs[0].x = particleGroup[i].x;
+			particleGroup[i].lastLocs[0].y = particleGroup[i].y;
+    		particleGroup[i].x += particleGroup[i].vx;
+    		particleGroup[i].y += particleGroup[i].vy;
+    		if(particleGroup[i].angle > 90 ) particleGroup[i].angle -= 0.2;
+    		else particleGroup[i].angle += 0.2;
+    		particleGroup[i].v -= particleGroup[i].a;
+    		if((particleGroup[i].angle- particleGroup[i].originalAngle >= 20)||(particleGroup[i].v<=0)) particleGroup.splice(i,1);
+    	}
+    }
+
+    function drawParticle(particleGroup){
+
+    	for(var i=0; i<particleGroup.length; i++){
+    		context.beginPath();
+    		context.arc(particleGroup[i].x , particleGroup[i].y , particleGroup[i].radius , 0 , 2* Math.PI);
+			context.fillStyle = particleGroup[i].color;
+			context.fill();
+			context.closePath();
+			context.beginPath();
+	    	context.moveTo(particleGroup[i].x,particleGroup[i].y);
+	    	context.lineWidth = 6;
+	        context.lineTo(particleGroup[i].lastLocs[2].x,particleGroup[i].lastLocs[2].y);
+	        context.strokeStyle = particleGroup[i].color;
+	     //    context.stroke();
+	     //    context.moveTo(particleGroup[i].lastLocs[0].x,particleGroup[i].lastLocs[0].y);
+	    	// context.lineWidth = 6;
+	     //    context.lineTo(particleGroup[i].lastLocs[1].x,particleGroup[i].lastLocs[1].y);
+	     //    context.strokeStyle = particleGroup[i].color;
+	     //    context.stroke();
+	     //    context.moveTo(particleGroup[i].lastLocs[1].x,particleGroup[i].lastLocs[1].y);
+	    	// context.lineWidth = 4;
+	     //    context.lineTo(particleGroup[i].lastLocs[2].x,particleGroup[i].lastLocs[2].y);
+	     //    context.strokeStyle = particleGroup[i].color;
+	     //    context.stroke();
+	        context.closePath();
+    	}
+    }
+
+	canvas.addEventListener ("mousedown", function(evt){
+			var pos = getMousePos(canvas,evt);
+			pointGroup.push(new point(pos.x,pos.y));
+			isDown = true;
+			var snd1 = new Audio();
+			var src1 = document.createElement("source");
+			src1.type = "audio/mpeg";
+			src1.src = "missile.mp3";
+			snd1.append(src1);
+			snd1.play();
+	});
+	canvas.addEventListener ("mousemove", function(evt){
+			if(isDown){
+				var pos = getMousePos(canvas,evt);
+				pointGroup.push(new point(pos.x,pos.y));
+			}
+	});
+	canvas.addEventListener ("mouseup", function(evt){
+			isDown = false;
+	});
+
+
+	function animate(canvas, time){
+		let date = new Date();
+		var interval = date.getTime() - time;
+		time = date.getTime();
+
+		var context = canvas.getContext("2d");
+		context.fillStyle = "rgba(255,255,255,0.01)"
+		context.fillRect(0, 0, canvas.width, canvas.height);
+		img1.onload();
+
+
+
+		for(var i=0; i< pointGroup.length; i++){
+			
+				if(pointGroup[i].isReach == false){
+					drawPoint(pointGroup[i]);
+					updatePoint(pointGroup[i]);
+				}
+				else if(pointGroup[i].isCreate == false){
+					newParticle(pointGroup[i]);
+					pointGroup[i].isCreate = true;
+					//console.log("create" + i);
+					j++;
+				}
+				else{
+					drawCirlce(pointGroup[i].targetX,pointGroup[i].targetY);
+				}
+		}
+		for(var i=0; i<j; i++){
+				update(particlesGroup[i]);
+				drawParticle(particlesGroup[i]);
+		}
+
+		//for()
+
+		requestAnimFrame(function(){
+			animate(canvas, time);
+		});
+	}
+	animate(canvas, time);
+</script>
+
+</body>
+</html>

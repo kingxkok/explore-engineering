@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html >
+<head>
+  <meta charset="UTF-8">
+  <title>Canvas Fireworks</title>
+ 
+      <style>
+      	
+      	canvas {
+			cursor: crosshair;
+			display: block;
+			position: relative;
+			z-index: 3;
+			background: black;
+		}
+          
+          html, body {
+              width:  100%;
+              height: 100%;
+              margin: 10px;
+            }
+          
+		canvas:active {
+			cursor: crosshair;
+		}
+
+ /* NOTE: The styles were added inline because Prefixfree needs access to your styles and they must be inlined if they are on local disk! */
+   
+      </style>
+
+
+
+</head>
+
+<body>
+  
+<canvas id="myCanvas" width="1000" height="700"></canvas>
+ <script type="text/javascript">
+	 window.requestAnimFrame=function(){ window.requestAnimationFrame||window.webkitRequestAnimationFrame||window.mozRequestAnimationFrame||window.oRequestAnimationFrame||window.msRequestAnimationFrame||function(a){window.setTimeout(a,1E3/60)}}();
+	
+	 //vars
+	 var canvas = document.getElementById("myCanvas");
+	 var numFireworks = 0;
+	 var numSpawned = 5;
+	 var highNumParts = 34;
+	 var numSparkles = 6;
+	 var speedMultiplier = 13;
+     var sparkleDecay = 0.06;
+	 var alphaDecay = 0.02;
+	 var sparkleSpawnRadius = 30;
+	 var gravity = 0.09;
+	 var fRadius = 1;
+
+	 var launch = document.getElementById('launch');
+
+	 var particles = [];
+ 	 var sparklers = [];
+ 	 var fireworks = [];
+
+ 	///helpers
+	 function getRandomColor() {
+	  var letters = '0123456789ABCDEF';
+	  var color = '#';
+	  for (var i = 0; i < 6; i++) {
+	    color += letters[Math.floor(Math.random() * 16)];
+	  }
+	  return color;
+	}
+	 var dist = function(x,y){
+	 	return Math.sqrt(x**2 + y**2);
+	 }
+	 var randSpeed = function(){
+	 	return Math.random()*speedMultiplier*2;
+	 }
+	 var randVel = function(spd){
+	 	let angle = Math.random()*2*Math.PI;
+	 	let speed = spd*Math.random() || randSpeed();
+	 	let v_x = speed*Math.cos(angle);
+	 	let v_y = speed*Math.sin(angle);
+
+	 	return {
+	 		vx : v_x,
+	 		vy : v_y
+	 	}
+	 }
+	 var randXY = function(radius){
+	 	let randPos = randVel(radius);
+	 	return {
+	 		x : randPos.vx,
+	 		y : randPos.vy
+	 	}
+	 }
+	 function hexToR(h) {return parseInt((cutHex(h)).substring(0,2),16)}
+	 function hexToG(h) {return parseInt((cutHex(h)).substring(2,4),16)}
+	 function hexToB(h) {return parseInt((cutHex(h)).substring(4,6),16)}
+	 function cutHex(h) {return (h.charAt(0)=="#") ? h.substring(1,7):h}
+
+	 var colorAddAlpha = function(h, a){
+	 	var color = 'rgba(';
+	 	color += hexToR(h) + ',';
+	 	color += hexToB(h) + ',';
+	 	color += hexToG(h) + ',';
+	 	color += a + ')';
+	 	return color;
+	 }
+
+	var initFireworks = function(){
+ 		var fireworks = [];
+ 		for(var i = 0; i < numFireworks; i++){
+ 			fireworks.push(new Firework() );
+ 		}
+ 		return fireworks;
+
+ 	}
+
+	 
+
+	
+ 	
+
+
+ 	var animate = function(){
+ 		var ctx = canvas.getContext('2d');
+        
+ 		ctx.fillStyle = 'rgba(0,0,0,0.1)'
+ 		ctx.fillRect(0,0,canvas.width,canvas.height)
+ 		
+        
+        
+ 		updateFireworks();
+ 		updateParticles();	
+ 		updateSparklers();
+
+ 		renderFireworks();
+ 		renderParticles();
+ 		renderSparklers();
+        
+        
+ 		window.requestAnimationFrame(
+ 			function(){
+ 				animate();
+ 			}
+ 		)
+
+ 	}
+
+ 	
+
+	var Firework = function(color, endX, endY, startX, startY,  speed, numSpawned){
+ 		this.color = color;
+ 		this.speed = speed || Math.random()*speedMultiplier+9;
+ 		this.x = startX || (0.5)*canvas.width;
+ 		this.y = startY  || canvas.height;
+ 		this.endX = endX || Math.random()*canvas.width;
+ 		this.endY = endY || Math.random()*canvas.width;
+ 		this.vx = this.endX-this.x;
+ 		this.vy = this.endY-this.y;
+ 		let locSpeed = Math.sqrt(this.vx**2 + this.vy**2);
+ 		this.vx = this.vx*this.speed/locSpeed;
+ 		this.vy = this.vy*this.speed/locSpeed;
+        this.numSpawned = numSpawned;
+
+        this.lastLocs = [{x:this.x, y:this.y},{x:this.x, y:this.y},{x:this.x, y:this.y}];
+ 	}
+ 	var updateFireworks = function(){
+ 		for(var j = 0; j<fireworks.length; j++){
+ 			let firework = fireworks[j];
+            
+            //update prev pos
+ 			firework.lastLocs[0].x = firework.x;
+            firework.lastLocs[0].y = firework.y;
+            firework.lastLocs[1].x = firework.lastLocs[0].x;
+            firework.lastLocs[1].y = firework.lastLocs[0].y;
+            firework.lastLocs[2].x = firework.lastLocs[1].x;
+            firework.lastLocs[2].y = firework.lastLocs[1].y;
+            
+            //update curr pos
+ 			firework.x += firework.vx;
+ 			firework.y += firework.vy;
+            
+ 			firework.lastLocs[0].x = firework.x;
+
+ 			if(dist((firework.x-firework.endX),(firework.y-firework.endY))<speedMultiplier){
+ 				fireworks.splice(j,1);
+ 				j--;
+ 				spawnParticles(firework);
+ 			}
+ 		}
+
+ 	}
+ 	var renderFireworks = function(){
+		var ctx = canvas.getContext('2d');
+		for(var j = 0; j<fireworks.length; j++){
+			let firework = fireworks[j];
+			ctx.beginPath();
+			ctx.arc(firework.x, firework.y, fRadius, 0, 2*Math.PI);
+			ctx.fillStyle = firework.color;
+			ctx.fill();
+			ctx.closePath();	
+            ctx.beginPath();
+            let idx = ~~(1+2*Math.random());
+            ctx.moveTo(firework.lastLocs[idx].x,firework.lastLocs[idx].y);
+            ctx.lineTo(firework.x,firework.y);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = firework.color;
+            ctx.stroke();
+            ctx.closePath();
+            
+		}
+ 	}
+
+ 	//Particles
+ 	var Particle = function(x, y, color){
+ 		this.color = color || getRandomColor();
+ 		this.x = x;
+ 		this.y = y;
+ 		let vel = randVel(5);
+ 		this.vx = vel.vx;
+ 		this.vy = vel.vy;
+ 		this.alpha = Math.random()*0.5+0.5;
+ 	}
+ 	var spawnParticles = function(firework){
+ 		for(var i = 0; i < (firework.numSpawned || numSpawned); i++)
+ 			particles.push(new Particle(firework.x,firework.y, firework.numSparkles));
+ 	}
+ 	var updateParticles = function(){
+ 		for(var j = 0; j<particles.length; j++){
+ 			let particle = particles[j];
+ 			particle.x += particle.vx;
+ 			particle.y += particle.vy;
+ 			particle.vy += gravity;
+ 			particle.alpha -= alphaDecay;
+ 			if(particle.alpha < 0.1){
+ 			 particles.splice(j,1)
+ 			 j--;
+ 			 sparkle(particle);
+ 			}
+ 		}
+ 	}
+ 	var sparkle = function(particle, numSparkArg){
+ 		for(var i = 0; i < (numSparkArg || numSparkles); i++)
+ 			sparklers.push(new Sparkler(particle));
+ 	}
+ 	var renderParticles = function(){
+		var ctx = canvas.getContext('2d');
+		for(var j = 0; j<particles.length; j++){
+			let particle = particles[j];
+			ctx.beginPath();
+			ctx.arc(particle.x, particle.y, 2, 0, 2*Math.PI);
+			ctx.fillStyle = colorAddAlpha(particle.color, particle.alpha);
+			ctx.fill();
+			ctx.closePath();	
+		}
+ 	}
+
+ 	var Sparkler = function(particle){
+ 		let randPos = randXY(sparkleSpawnRadius*Math.random()+1);
+ 		this.x = particle.x + randPos.x;
+ 		this.y = particle.y + randPos.y;
+ 		this.alpha = 1;	
+ 		this.color = 'hsla(' + 360*Math.random()*(1-Math.random()) +', 100%, '+ Math.random() + ',' + 1  + ')';
+ 	}
+ 	Sparkler.prototype.getColor  = function(i) {
+		return 'hsla(' + ~~(360*Math.random()*i/sparklers.length) +', 100%, '+ 100*Math.random() + '%, ' + this.alpha  + ')';
+	}
+	var updateSparklers = function(){
+		for(var i = 0; i < sparklers.length; i++){
+			sparklers[i].alpha -= sparkleDecay;
+			sparklers[i].color = sparklers[i].getColor(i);
+			if(sparklers[i].alpha < 0.3){
+				sparklers.splice(i,1);
+				i--;
+			} 
+		}
+
+	}
+	var renderSparklers = function(){
+		var ctx = canvas.getContext('2d');
+		for(var j = 0; j<sparklers.length; j++){
+			let sparkler = sparklers[j];
+			ctx.beginPath();
+			ctx.fillStyle = sparkler.color;
+			//console.log(sparkler.color)
+			ctx.arc(sparkler.x, sparkler.y, 1, 0, 2*Math.PI);
+			ctx.fill();
+			ctx.closePath();	
+		}
+	}
+
+    //load the audio
+    var snd1  = new Audio();
+    snd1.load();
+    var src1  = document.createElement("source");
+    src1.type = "audio/mpeg";
+    src1.src  = "launch.mp3";
+    snd1.appendChild(src1);
+    var launchSounds = [];
+    for(var i = 0; i<10; i++){
+        launchSounds.push(new Audio());
+        let snd2  = launchSounds[i];
+        let src2  = document.createElement("source");
+        src2.type = "audio/mpeg";
+        src2.src  = "launch.mp3";
+        snd2.appendChild(src2);
+        snd2.load();
+        
+    }
+     Audio.prototype.play2 = function(){
+         this.play();
+         console.log("played")
+     }
+     
+    //resize canvas
+    var ctx = canvas.getContext('2d');
+    ctx.canvas.width  = window.innerWidth*0.9;
+    ctx.canvas.height = window.innerHeight*0.9;
+     
+     var spawnOnMove = false;
+     
+ 	canvas.addEventListener('mousedown', function(e){
+        spawnOnMove = true;
+ 		fireworks.push(new Firework(getRandomColor(), e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft - canvas.offsetLeft,e.clientY + document.body.scrollTop + document.documentElement.scrollTop - canvas.offsetTop, null, null, null, highNumParts));
+        var snd1  = new Audio();
+        var src1  = document.createElement("source");
+        src1.type = "audio/mpeg";
+        src1.src  = "launch.mp3";
+        snd1.appendChild(src1);
+        snd1.play();
+ 	})
+     var playSoundIndex = 0;
+     var playSound = 0;
+     canvas.addEventListener('mouseup', function(){spawnOnMove = false;})
+     canvas.addEventListener('mousemove', function(e){
+         if(spawnOnMove){
+            fireworks.push(new Firework(getRandomColor(), e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft - canvas.offsetLeft,e.clientY + document.body.scrollTop + document.documentElement.scrollTop - canvas.offsetTop));
+             
+           /*  playSoundIndex++;
+             playSoundIndex%=10;
+             playSound++;
+             playSound%=15;
+
+             if(playSound===0)
+             launchSounds[playSoundIndex].play2(); */
+             
+             
+            playSoundIndex++;
+            playSoundIndex%=8;
+            if(playSoundIndex === 0){
+                var snd1  = new Audio();
+                var src1  = document.createElement("source");
+                src1.type = "audio/mpeg";
+                src1.src  = "launch.mp3";
+                snd1.appendChild(src1);
+                snd1.play();
+            } 
+            else if(playSoundIndex === 4){
+            	launchSounds[playSoundIndex].play();
+            }
+
+         }
+ 	})
+
+ 	fireworks = initFireworks();
+     
+
+ 	animate();
+ </script>
+
+</body>
+</html>
